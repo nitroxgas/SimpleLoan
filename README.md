@@ -4,6 +4,8 @@
 [![Network: Liquid](https://img.shields.io/badge/Network-Liquid-blue.svg)](https://liquid.net/)
 [![Language: SimplicityHL](https://img.shields.io/badge/Language-SimplicityHL-green.svg)](https://github.com/BlockstreamResearch/simplicity)
 [![Status: Development](https://img.shields.io/badge/Status-Development-orange.svg)]()
+[![Progress: 92%](https://img.shields.io/badge/Progress-92%25-brightgreen.svg)]()
+[![LOC: 18K](https://img.shields.io/badge/LOC-18K-blue.svg)]()
 
 > **AAVE-inspired lending protocol with formal verification on Liquid Network**
 
@@ -113,16 +115,49 @@ Fantasma is a decentralized lending protocol that brings AAVE's battle-tested ar
 
 ### Prerequisites
 
+**Required**:
 - Python 3.11+
 - Node.js 18+
-- Elements Core (Liquid node)
 - Git
+
+**Optional** (for validators):
+- Elements Core (Liquid node)
+- SimplicityHL compiler (`simc`)
+- Coq proof assistant
+
+### Quick Commands
+
+```bash
+# Setup testnet environment (automated)
+./scripts/setup_testnet.sh
+
+# Mint test tokens
+./scripts/mint_test_tokens.sh
+
+# Start backend API
+cd backend && uvicorn src.main:app --reload
+
+# Start frontend
+cd frontend && npm start
+
+# View API docs
+# http://localhost:8000/docs
+
+# Compile validators
+./scripts/compile_validators.sh
+
+# Verify proofs
+./scripts/verify_proofs.sh
+
+# Deploy validators
+./scripts/deploy_validators.sh
+```
 
 ### Installation
 
 ```bash
 # Clone repository
-git clone https://github.com/fantasma-protocol/fantasma.git
+git clone https://github.com/nitroxgas/SimpleLoan.git fantasma
 cd fantasma
 
 # Setup Elements regtest node
@@ -154,14 +189,122 @@ For detailed setup instructions, see [Quickstart Guide](specs/001-utxo-lending-p
 
 ---
 
+## 📁 Project Structure
+
+```
+fantasma/
+├── validators/              # SimplicityHL validators & Coq proofs
+│   ├── lib/                # RAY math library
+│   ├── reserve/            # Reserve validator + solvency proofs
+│   ├── debt/               # Debt validator + health factor proofs
+│   └── oracle/             # Oracle validator
+│
+├── backend/                # Python FastAPI backend
+│   ├── src/
+│   │   ├── api/           # REST API routes & schemas
+│   │   ├── models/        # SQLAlchemy models
+│   │   ├── services/      # Business logic services
+│   │   └── utils/         # RAY math, Liquid client, logger
+│   └── alembic/           # Database migrations
+│
+├── frontend/               # React + TypeScript frontend
+│   ├── src/
+│   │   ├── pages/         # Dashboard, Supply, Borrow, Liquidate
+│   │   ├── components/    # Reusable UI components
+│   │   ├── hooks/         # Custom React hooks
+│   │   └── services/      # API client
+│
+├── scripts/                # Deployment & setup scripts
+│   ├── setup_testnet.sh   # Automated testnet setup
+│   ├── mint_test_tokens.sh# Token minting
+│   ├── compile_validators.sh  # Compile SimplicityHL
+│   ├── verify_proofs.sh   # Verify Coq proofs
+│   └── deploy_validators.sh   # Deploy to Liquid
+│
+├── specs/                  # Project specifications
+│   └── 001-utxo-lending-protocol/
+│       ├── spec.md        # Feature specification
+│       ├── plan.md        # Implementation plan
+│       ├── data-model.md  # Data structures
+│       ├── tasks.md       # Task breakdown
+│       └── quickstart.md  # Setup guide
+│
+├── development_docs/       # Development notes & summaries
+│   ├── PHASE_8_COMPLETE.md
+│   ├── T070-T080_SUMMARY.md
+│   ├── T086-T088-T091-T092_SUMMARY.md
+│   └── ...
+│
+├── docs/                   # Additional documentation
+│   └── validators/        # Validator-specific docs
+│
+├── shared/                 # Shared types & constants
+│   ├── constants/         # RAY constants
+│   └── types/             # TypeScript type definitions
+│
+└── .specify/              # Project metadata & archives
+    └── ARCHIVE_2025-11-06.md
+```
+
+---
+
 ## 📖 Documentation
 
+### Core Specifications
 - **[Feature Specification](specs/001-utxo-lending-protocol/spec.md)**: Complete feature requirements and user stories
 - **[Implementation Plan](specs/001-utxo-lending-protocol/plan.md)**: Technical architecture and design decisions
 - **[Data Model](specs/001-utxo-lending-protocol/data-model.md)**: On-chain and off-chain data structures
-- **[API Documentation](specs/001-utxo-lending-protocol/contracts/api.yaml)**: OpenAPI specification
+- **[Tasks Breakdown](specs/001-utxo-lending-protocol/tasks.md)**: Detailed task list with status
 - **[Quickstart Guide](specs/001-utxo-lending-protocol/quickstart.md)**: Developer setup instructions
-- **[Constitution](.specify/memory/constitution.md)**: Project principles and governance
+
+### Validator Documentation
+- **[Validator Implementation Guide](validators/IMPLEMENTATION_GUIDE.md)**: Complete guide for SimplicityHL validators
+- **[Validator Quickstart](validators/QUICKSTART.md)**: Quick reference for validator compilation and deployment
+- **[Validator README](validators/README.md)**: Overview of validator architecture
+
+### API & Frontend
+- **[API Documentation](http://localhost:8000/docs)**: Interactive OpenAPI/Swagger UI (when backend running)
+- **[Frontend README](frontend/README.md)**: Frontend setup and architecture
+- **[Frontend Troubleshooting](frontend/TROUBLESHOOTING.md)**: Common issues and solutions
+
+### Project Status
+- **[Project Status](PROJECT_STATUS_FINAL.md)**: Overall project progress and completion status
+- **[Quickstart Guide](QUICKSTART.md)**: Quick start for the entire project
+- **[Archive](.specify/ARCHIVE_2025-11-06.md)**: Complete project snapshot (Nov 6, 2025)
+
+### Development Documentation
+Detailed implementation notes and phase summaries are available in the [`development_docs/`](development_docs/) directory.
+
+---
+
+## 📊 Project Statistics
+
+### Implementation Progress
+- **Tasks Completed**: 87/95 (92%)
+- **Total Lines of Code**: ~18,000 LOC
+- **Files**: 117+ files across all components
+
+### Code Breakdown
+| Component | Lines of Code | Files | Status |
+|-----------|---------------|-------|--------|
+| SimplicityHL Validators | 2,100 | 4 | ✅ Complete |
+| Coq Formal Proofs | 780 | 3 | ✅ Complete |
+| Backend (Python) | ~8,000 | 50+ | ✅ Complete |
+| Frontend (React/TS) | ~4,000 | 25+ | ✅ Complete |
+| Scripts & Docs | ~3,000 | 35+ | ✅ Complete |
+
+### Phase Completion
+| Phase | Tasks | Progress |
+|-------|-------|----------|
+| 1. Setup | 9/9 | 100% ✅ |
+| 2. Foundational | 15/15 | 100% ✅ |
+| 3. Supply | 13/13 | 100% ✅ |
+| 4. Borrow | 10/10 | 100% ✅ |
+| 5. Liquidate | 8/8 | 100% ✅ |
+| 6. Withdraw | 5/5 | 100% ✅ |
+| 7. Interest Rates | 6/6 | 100% ✅ |
+| 8. Validators | 11/11 | 100% ✅ |
+| 9. Polish | 10/18 | 56% ⏳ |
 
 ---
 
@@ -217,7 +360,7 @@ All validators undergo formal verification before deployment:
 
 ## 🗺️ Roadmap
 
-### Phase 1: MVP ✅ Complete (87%)
+### Phase 1: MVP ✅ Complete (92%)
 - [x] Project constitution and specification
 - [x] Implementation plan and architecture design
 - [x] Reserve and Debt validators (SimplicityHL) - **1,535 LOC**
@@ -253,6 +396,28 @@ All validators undergo formal verification before deployment:
 - [ ] Governance token and DAO
 - [ ] Confidential transactions support
 - [ ] Additional asset support
+
+---
+
+## 💬 Getting Help
+
+### Documentation Resources
+- **[Quickstart Guide](QUICKSTART.md)**: Fast track to getting started
+- **[Project Status](PROJECT_STATUS_FINAL.md)**: Current implementation status
+- **[API Documentation](http://localhost:8000/docs)**: Interactive API reference
+- **[Validator Guide](validators/IMPLEMENTATION_GUIDE.md)**: SimplicityHL validator details
+- **[Frontend Troubleshooting](frontend/TROUBLESHOOTING.md)**: Common frontend issues
+
+### Common Issues
+1. **Backend won't start**: Check Python version (3.11+), run `alembic upgrade head`
+2. **Frontend build errors**: Delete `node_modules`, run `npm install` again
+3. **Validator compilation**: Requires `simc` compiler from Simplicity repository
+4. **Elements node**: Use `./scripts/setup_testnet.sh` for automated setup
+
+### Support
+- **Issues**: [GitHub Issues](https://github.com/nitroxgas/SimpleLoan/issues)
+- **Pull Requests**: [GitHub PRs](https://github.com/nitroxgas/SimpleLoan/pulls)
+- **Development Docs**: See [`development_docs/`](development_docs/) directory
 
 ---
 
@@ -335,15 +500,25 @@ SOFTWARE.
 
 **This software is experimental and under active development.**
 
-- **Testnet Only**: Currently deployed only on Liquid testnet
-- **No Mainnet**: Not yet audited or approved for mainnet deployment
-- **Use at Own Risk**: Do not use with real funds until formal audit is complete
+- **Development Phase**: 92% complete (87/95 tasks)
+- **Testnet Ready**: Validators and backend implemented, not yet deployed
+- **No Mainnet**: Not audited or approved for mainnet deployment
+- **Use at Own Risk**: Educational and testing purposes only
 - **No Warranties**: Provided "as is" without any warranties or guarantees
 
-For production use, wait for:
-1. ✅ Complete formal verification
-2. ✅ External security audit
-3. ✅ Mainnet deployment announcement
+### Current Status
+- ✅ **Implementation**: Core protocol complete with formal verification
+- ✅ **Validators**: SimplicityHL code written and Coq proofs verified
+- ⏳ **Testing**: Integration tests and security audit pending
+- ❌ **Deployment**: Not yet deployed to Liquid testnet or mainnet
+
+### Before Production Use
+1. ✅ Complete formal verification (DONE)
+2. ⏳ Complete integration testing suite
+3. ⏳ External security audit
+4. ⏳ Bug bounty program
+5. ⏳ Testnet deployment and community testing
+6. ❌ Mainnet deployment (after audit approval)
 
 ---
 
@@ -353,6 +528,6 @@ For production use, wait for:
 
 *Bringing formally verified DeFi to Bitcoin*
 
-[Report Bug](https://github.com/fantasma-protocol/fantasma/issues) · [Request Feature](https://github.com/fantasma-protocol/fantasma/issues) · [Documentation](specs/001-utxo-lending-protocol/spec.md)
+[Report Bug](https://github.com/nitroxgas/SimpleLoan/issues) · [Request Feature](https://github.com/nitroxgas/SimpleLoan/issues) · [Documentation](specs/001-utxo-lending-protocol/spec.md)
 
 </div>
