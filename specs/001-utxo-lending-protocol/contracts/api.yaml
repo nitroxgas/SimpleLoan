@@ -1,0 +1,566 @@
+openapi: 3.0.3
+info:
+  title: UTXO Lending Protocol API
+  description: |
+    Backend API for AAVE-inspired lending protocol on Liquid Network.
+    Handles off-chain coordination, transaction assembly, and state queries.
+  version: 1.0.0
+  contact:
+    name: Fantasma Protocol
+    
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://testnet-api.fantasma.network/api/v1
+    description: Liquid testnet
+
+tags:
+  - name: Supply
+    description: Supply assets to lending pools
+  - name: Borrow
+    description: Borrow assets against collateral
+  - name: Repay
+    description: Repay borrowed assets
+  - name: Liquidate
+    description: Liquidate undercollateralized positions
+  - name: Positions
+    description: Query user positions and portfolio
+  - name: Reserves
+    description: Query reserve pool states
+  - name: Oracle
+    description: Price feed information
+
+paths:
+  /supply:
+    post:
+      tags: [Supply]
+      summary: Submit supply intent
+      description: User submits intent to supply assets to a lending pool. Coordinator assembles transaction.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplyIntent'
+      responses:
+        '202':
+          description: Intent accepted, transaction pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  
+  /withdraw:
+    post:
+      tags: [Supply]
+      summary: Submit withdraw intent
+      description: User submits intent to withdraw supplied assets from pool.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawIntent'
+      responses:
+        '202':
+          description: Intent accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  
+  /borrow:
+    post:
+      tags: [Borrow]
+      summary: Submit borrow intent
+      description: User submits intent to borrow assets against collateral.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowIntent'
+      responses:
+        '202':
+          description: Intent accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: Insufficient collateral or health factor too low
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /repay:
+    post:
+      tags: [Repay]
+      summary: Submit repay intent
+      description: User submits intent to repay borrowed assets (partial or full).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepayIntent'
+      responses:
+        '202':
+          description: Intent accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  
+  /liquidate:
+    post:
+      tags: [Liquidate]
+      summary: Submit liquidation intent
+      description: Liquidator submits intent to liquidate undercollateralized position.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiquidateIntent'
+      responses:
+        '202':
+          description: Intent accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: Position not liquidatable (health factor >= 1.0)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /positions/{user_id}:
+    get:
+      tags: [Positions]
+      summary: Get user portfolio
+      description: Retrieve all supply and debt positions for a user.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Liquid address (bech32)
+      responses:
+        '200':
+          description: User portfolio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPortfolio'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  
+  /positions/liquidatable:
+    get:
+      tags: [Positions]
+      summary: Get liquidatable positions
+      description: Retrieve all positions with health factor < 1.0.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+          description: Maximum number of positions to return
+      responses:
+        '200':
+          description: List of liquidatable positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LiquidatablePosition'
+  
+  /reserves:
+    get:
+      tags: [Reserves]
+      summary: Get all reserve states
+      description: Retrieve current state of all lending pools.
+      responses:
+        '200':
+          description: List of reserve states
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReserveState'
+  
+  /reserves/{asset_id}:
+    get:
+      tags: [Reserves]
+      summary: Get reserve state for specific asset
+      description: Retrieve current state of a specific lending pool.
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Liquid asset ID (hex)
+      responses:
+        '200':
+          description: Reserve state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReserveState'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  
+  /oracle/prices:
+    get:
+      tags: [Oracle]
+      summary: Get current oracle prices
+      description: Retrieve latest verified price feeds for all asset pairs.
+      responses:
+        '200':
+          description: List of price feeds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OraclePrice'
+  
+  /oracle/prices/{asset_pair}:
+    get:
+      tags: [Oracle]
+      summary: Get price for specific asset pair
+      description: Retrieve latest verified price for an asset pair (e.g., BTC/USD).
+      parameters:
+        - name: asset_pair
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Asset pair (e.g., "BTC/USD")
+      responses:
+        '200':
+          description: Price feed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OraclePrice'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          description: Price is stale (> 10 minutes old)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    SupplyIntent:
+      type: object
+      required: [user_id, asset_id, amount, signature]
+      properties:
+        user_id:
+          type: string
+          description: Liquid address (bech32)
+          example: "lq1qabcdef..."
+        asset_id:
+          type: string
+          description: Liquid asset ID (hex)
+          example: "6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d"
+        amount:
+          type: string
+          description: Amount to supply (in asset's smallest unit, as string to avoid precision loss)
+          example: "100000000"  # 1.0 BTC (8 decimals)
+        signature:
+          type: string
+          description: User signature over intent (hex)
+          example: "304402..."
+    
+    WithdrawIntent:
+      type: object
+      required: [user_id, asset_id, amount, signature]
+      properties:
+        user_id:
+          type: string
+        asset_id:
+          type: string
+        amount:
+          type: string
+          description: Amount to withdraw (underlying, not aTokens)
+        signature:
+          type: string
+    
+    BorrowIntent:
+      type: object
+      required: [user_id, borrowed_asset_id, collateral_asset_id, amount, signature]
+      properties:
+        user_id:
+          type: string
+        borrowed_asset_id:
+          type: string
+          description: Asset to borrow
+        collateral_asset_id:
+          type: string
+          description: Asset used as collateral
+        amount:
+          type: string
+          description: Amount to borrow
+        signature:
+          type: string
+    
+    RepayIntent:
+      type: object
+      required: [user_id, debt_position_id, amount, signature]
+      properties:
+        user_id:
+          type: string
+        debt_position_id:
+          type: string
+          description: Debt UTXO ID (txid:vout)
+        amount:
+          type: string
+          description: Amount to repay (0 for full repayment)
+        signature:
+          type: string
+    
+    LiquidateIntent:
+      type: object
+      required: [liquidator_id, debt_position_id, repay_amount, signature]
+      properties:
+        liquidator_id:
+          type: string
+          description: Liquidator's Liquid address
+        debt_position_id:
+          type: string
+          description: Debt UTXO ID to liquidate
+        repay_amount:
+          type: string
+          description: Amount of debt to repay
+        signature:
+          type: string
+    
+    TransactionResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          description: Liquid transaction ID (once broadcast)
+          example: "abc123..."
+        status:
+          type: string
+          enum: [pending, assembling, broadcast, confirmed, failed]
+          description: Transaction status
+        estimated_confirmation_time:
+          type: integer
+          description: Estimated seconds until confirmation
+          example: 120
+        message:
+          type: string
+          example: "Intent accepted, assembling transaction"
+    
+    UserPortfolio:
+      type: object
+      properties:
+        user_id:
+          type: string
+        health_factor:
+          type: string
+          description: Health factor in RAY (1.0 = 10^27)
+          example: "1500000000000000000000000000"  # 1.5
+        total_supplied_usd:
+          type: string
+          description: Total supplied value in USD (RAY)
+        total_borrowed_usd:
+          type: string
+          description: Total borrowed value in USD (RAY)
+        supply_positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupplyPosition'
+        debt_positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/DebtPosition'
+    
+    SupplyPosition:
+      type: object
+      properties:
+        id:
+          type: string
+        asset_id:
+          type: string
+        atoken_amount:
+          type: string
+          description: aToken balance (RAY)
+        underlying_value:
+          type: string
+          description: Current underlying value (RAY)
+        created_at:
+          type: string
+          format: date-time
+    
+    DebtPosition:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Debt UTXO ID
+        borrowed_asset_id:
+          type: string
+        collateral_asset_id:
+          type: string
+        principal:
+          type: string
+          description: Normalized principal (RAY)
+        borrow_index_at_open:
+          type: string
+          description: Borrow index when opened (RAY)
+        current_debt:
+          type: string
+          description: Current debt amount (RAY)
+        health_factor:
+          type: string
+          description: Position health factor (RAY)
+        created_at:
+          type: string
+          format: date-time
+    
+    LiquidatablePosition:
+      type: object
+      properties:
+        user_id:
+          type: string
+        debt_position_id:
+          type: string
+        health_factor:
+          type: string
+          description: Health factor < 1.0 * RAY
+        borrowed_asset_id:
+          type: string
+        collateral_asset_id:
+          type: string
+        current_debt:
+          type: string
+        collateral_value:
+          type: string
+        max_liquidation_amount:
+          type: string
+          description: Maximum debt that can be liquidated
+        liquidation_bonus:
+          type: string
+          description: Bonus percentage for liquidator (RAY)
+    
+    ReserveState:
+      type: object
+      properties:
+        asset_id:
+          type: string
+        total_liquidity:
+          type: string
+          description: Total supplied (RAY)
+        total_variable_debt:
+          type: string
+          description: Total borrowed (RAY)
+        available_liquidity:
+          type: string
+          description: Available to borrow (RAY)
+        utilization_rate:
+          type: string
+          description: Utilization percentage (RAY, e.g., 0.8 * RAY = 80%)
+        liquidity_index:
+          type: string
+          description: aToken conversion rate (RAY)
+        variable_borrow_index:
+          type: string
+          description: Debt normalization index (RAY)
+        current_liquidity_rate:
+          type: string
+          description: Supply APY (RAY)
+        current_variable_borrow_rate:
+          type: string
+          description: Borrow APY (RAY)
+        reserve_factor:
+          type: string
+          description: Protocol fee (RAY)
+        last_update_timestamp:
+          type: integer
+          description: Unix epoch seconds
+    
+    OraclePrice:
+      type: object
+      properties:
+        asset_pair:
+          type: string
+          example: "BTC/USD"
+        price:
+          type: string
+          description: Price in RAY
+          example: "50000000000000000000000000000000"  # $50,000
+        timestamp:
+          type: integer
+          description: Unix epoch seconds
+        publisher_pubkey:
+          type: string
+          description: Oracle pubkey (hex)
+        verified:
+          type: boolean
+          description: Signature verified
+        age_seconds:
+          type: integer
+          description: Seconds since price update
+    
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error context
+  
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
