@@ -1,0 +1,373 @@
+# Fantasma Protocol - Git Ignore
+
+# ============================================================================
+# Python (Backend)
+# ============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# ============================================================================
+# Node.js (Frontend)
+# ============================================================================
+
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production
+/build
+/dist
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js (if used)
+.next/
+out/
+
+# Nuxt.js (if used)
+.nuxt
+dist
+
+# ============================================================================
+# Database
+# ============================================================================
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+fantasma.db
+
+# PostgreSQL (if used later)
+*.sql
+*.dump
+
+# ============================================================================
+# Elements / Liquid
+# ============================================================================
+
+# Elements data directory
+.elements/
+regtest/
+testnet/
+mainnet/
+
+# Wallet files
+wallet.dat
+*.wallet
+
+# Debug logs
+debug.log
+db.log
+
+# ============================================================================
+# SimplicityHL / Coq
+# ============================================================================
+
+# Compiled Simplicity
+*.simp
+*.simpl.o
+
+# Coq
+*.vo
+*.vok
+*.vos
+*.glob
+.coqdeps.d
+.lia.cache
+.nia.cache
+
+# ============================================================================
+# Environment & Secrets
+# ============================================================================
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+
+# API keys
+api_keys.txt
+credentials.json
+
+# ============================================================================
+# IDEs & Editors
+# ============================================================================
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Windsurf (keep rules)
+.windsurf/
+!.windsurf/rules/
+!.windsurf/workflows/
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ============================================================================
+# OS
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================================================
+# Logs
+# ============================================================================
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ============================================================================
+# Temporary Files
+# ============================================================================
+
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*~.nib
+
+# ============================================================================
+# Build Artifacts
+# ============================================================================
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Node
+build/
+dist/
+out/
+
+# Rust (if used for performance-critical parts)
+target/
+Cargo.lock
+
+# ============================================================================
+# Documentation
+# ============================================================================
+
+# Generated docs
+docs/_build/
+docs/.doctrees/
+site/
+
+# ============================================================================
+# Testing
+# ============================================================================
+
+# Test outputs
+test-results/
+.pytest_cache/
+.hypothesis/
+
+# Coverage
+.coverage
+htmlcov/
+coverage/
+
+# ============================================================================
+# Deployment
+# ============================================================================
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# ============================================================================
+# Project Specific
+# ============================================================================
+
+# Local configuration
+config.local.json
+settings.local.json
+
+# Asset IDs (generated during setup)
+.env.local
+
+# Oracle cache
+oracle_cache/
+
+# Transaction history
+tx_history/
+
+# Backup files
+backup/
+*.backup
+
+# Performance profiling
+*.prof
+*.pstats
+
+# ============================================================================
+# Keep These Files
+# ============================================================================
+
+# Keep example configs
+!.env.example
+!config.example.json
+
+# Keep empty directories with .gitkeep
+!.gitkeep
+
+# Keep workflow files
+!.github/
+!.windsurf/workflows/
+!.windsurf/rules/
+
+# Keep specification files
+!specs/
+!.specify/
