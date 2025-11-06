@@ -122,7 +122,7 @@ Fantasma is a decentralized lending protocol that brings AAVE's battle-tested ar
 
 ```bash
 # Clone repository
-git clone https://github.com/fantasma-protocol/fantasma.git
+git clone https://github.com/nitroxgas/SimpleLoan.git
 cd fantasma
 
 # Setup Elements regtest node
