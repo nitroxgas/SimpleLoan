@@ -371,3 +371,8 @@ backup/
 # Keep specification files
 !specs/
 !.specify/
+
+# Keep validator implementation files
+!validators/
+!validators/**/*.simf
+!validators/**/*.v

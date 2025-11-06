@@ -1,0 +1,374 @@
+// Oracle Validator for Fantasma Protocol
+// Verifies price feed signatures and data freshness
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const PRICE_FEED_SIZE: usize = 160;
+const SIGNATURE_SIZE: usize = 64;
+const PUBLIC_KEY_SIZE: usize = 33;
+
+// Price feed offsets
+const ASSET_ID_OFFSET: usize = 0;
+const PRICE_OFFSET: usize = 32;
+const TIMESTAMP_OFFSET: usize = 64;
+const SIGNATURE_OFFSET: usize = 72;
+const PUBKEY_OFFSET: usize = 136;
+
+// Oracle parameters
+const MAX_PRICE_STALENESS: u64 = 300; // 5 minutes in seconds
+const MIN_PRICE: u256 = 1; // Minimum valid price (1 satoshi)
+const MAX_PRICE: u256 = 0xffffffffffffffff; // Maximum valid price
+
+// ============================================================================
+// State Structures
+// ============================================================================
+
+struct PriceFeed {
+    asset_id: [u8; 32],
+    price: u256,
+    timestamp: u64,
+    signature: [u8; 64],
+    oracle_pubkey: [u8; 33],
+}
+
+// ============================================================================
+// Parsing Functions
+// ============================================================================
+
+/// Parse price feed from 160-byte buffer
+fn parse_price_feed(data: [u8; 160]) -> PriceFeed {
+    // Extract asset_id (32 bytes at offset 0)
+    let mut asset_id = [0u8; 32];
+    let mut i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                asset_id[i] = data[ASSET_ID_OFFSET.checked_add(i).unwrap()];
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    // Extract price (32 bytes at offset 32, big-endian)
+    let price = parse_u256_be(data, PRICE_OFFSET);
+    
+    // Extract timestamp (8 bytes at offset 64, big-endian)
+    let timestamp = parse_u64_be(data, TIMESTAMP_OFFSET);
+    
+    // Extract signature (64 bytes at offset 72)
+    let mut signature = [0u8; 64];
+    i = 0;
+    loop {
+        match i < 64 {
+            true => {
+                signature[i] = data[SIGNATURE_OFFSET.checked_add(i).unwrap()];
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    // Extract oracle_pubkey (33 bytes at offset 136)
+    let mut oracle_pubkey = [0u8; 33];
+    i = 0;
+    loop {
+        match i < 33 {
+            true => {
+                oracle_pubkey[i] = data[PUBKEY_OFFSET.checked_add(i).unwrap()];
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    PriceFeed {
+        asset_id,
+        price,
+        timestamp,
+        signature,
+        oracle_pubkey,
+    }
+}
+
+/// Parse u256 from buffer (big-endian)
+fn parse_u256_be(data: [u8; 160], offset: usize) -> u256 {
+    let mut result: u256 = 0;
+    let mut i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                let byte_val = data[offset.checked_add(i).unwrap()] as u256;
+                result = result.checked_mul(256).unwrap();
+                result = result.checked_add(byte_val).unwrap();
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    result
+}
+
+/// Parse u64 from buffer (big-endian)
+fn parse_u64_be(data: [u8; 160], offset: usize) -> u64 {
+    let mut result: u64 = 0;
+    let mut i = 0;
+    loop {
+        match i < 8 {
+            true => {
+                let byte_val = data[offset.checked_add(i).unwrap()] as u64;
+                result = result.checked_mul(256).unwrap();
+                result = result.checked_add(byte_val).unwrap();
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    result
+}
+
+// ============================================================================
+// Validation Functions
+// ============================================================================
+
+/// Validate price feed freshness
+/// Price must not be older than MAX_PRICE_STALENESS seconds
+fn validate_freshness(feed_timestamp: u64, current_timestamp: u64) -> bool {
+    match feed_timestamp <= current_timestamp {
+        false => false, // Future timestamp invalid
+        true => {
+            let age = current_timestamp.checked_sub(feed_timestamp).unwrap();
+            age <= MAX_PRICE_STALENESS
+        }
+    }
+}
+
+/// Validate price value bounds
+fn validate_price_bounds(price: u256) -> bool {
+    price >= MIN_PRICE && price <= MAX_PRICE
+}
+
+/// Construct message to be signed
+/// Message format: asset_id (32 bytes) || price (32 bytes) || timestamp (8 bytes)
+fn construct_message(asset_id: [u8; 32], price: u256, timestamp: u64) -> [u8; 72] {
+    let mut message = [0u8; 72];
+    
+    // Copy asset_id (32 bytes)
+    let mut i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                message[i] = asset_id[i];
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    // Copy price as big-endian (32 bytes)
+    i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                let byte_index = 31usize.checked_sub(i).unwrap();
+                let byte_val = (price >> (i.checked_mul(8).unwrap())) & 0xFF;
+                message[32usize.checked_add(byte_index).unwrap()] = byte_val as u8;
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    // Copy timestamp as big-endian (8 bytes)
+    i = 0;
+    loop {
+        match i < 8 {
+            true => {
+                let byte_index = 7usize.checked_sub(i).unwrap();
+                let byte_val = (timestamp >> (i.checked_mul(8).unwrap())) & 0xFF;
+                message[64usize.checked_add(byte_index).unwrap()] = byte_val as u8;
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    message
+}
+
+/// Verify ECDSA signature using Simplicity jets
+/// This is a placeholder - actual implementation would use Simplicity's built-in jets
+/// 
+/// In real Simplicity:
+/// - Use `jet_bip_0340_verify` for Schnorr signatures
+/// - Use `jet_verify` for ECDSA signatures
+/// - Hash message with SHA256: `jet_sha_256`
+fn verify_signature(
+    message: [u8; 72],
+    signature: [u8; 64],
+    pubkey: [u8; 33]
+) -> bool {
+    // Hash the message
+    let message_hash = sha256(message);
+    
+    // Verify signature (using Simplicity jet)
+    // jet_verify(message_hash, signature, pubkey)
+    
+    // Placeholder: In actual Simplicity, this would call:
+    // `simplicity::jets::secp256k1::verify(message_hash, signature, pubkey)`
+    
+    // For now, return true - this will be replaced with actual jet call
+    // when compiling with simc
+    true
+}
+
+/// SHA256 hash function (placeholder for Simplicity jet)
+/// In real Simplicity, use: jet_sha_256
+fn sha256(data: [u8; 72]) -> [u8; 32] {
+    // Placeholder - actual implementation uses Simplicity jet
+    // jet_sha_256(data)
+    
+    let mut hash = [0u8; 32];
+    // This would be replaced with actual SHA256 jet call
+    hash
+}
+
+/// Check if oracle public key is authorized
+/// In production, this would check against a whitelist of authorized oracles
+fn is_authorized_oracle(pubkey: [u8; 33], authorized_keys: [[u8; 33]; 5]) -> bool {
+    let mut i = 0;
+    let mut authorized = false;
+    
+    loop {
+        match i < 5 {
+            true => {
+                match arrays_equal_33(pubkey, authorized_keys[i]) {
+                    true => { authorized = true; }
+                    false => {}
+                };
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    authorized
+}
+
+/// Compare two 33-byte arrays for equality
+fn arrays_equal_33(a: [u8; 33], b: [u8; 33]) -> bool {
+    let mut i = 0;
+    let mut equal = true;
+    loop {
+        match i < 33 {
+            true => {
+                match a[i] == b[i] {
+                    true => {},
+                    false => { equal = false; }
+                };
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    equal
+}
+
+// ============================================================================
+// Main Validator
+// ============================================================================
+
+/// Validate price feed
+/// 
+/// # Arguments
+/// * `feed_data` - Price feed data (160 bytes)
+/// * `current_timestamp` - Current block timestamp
+/// * `authorized_keys` - List of authorized oracle public keys
+///
+/// # Returns
+/// true if price feed is valid, false otherwise
+fn validate_price_feed(
+    feed_data: [u8; 160],
+    current_timestamp: u64,
+    authorized_keys: [[u8; 33]; 5]
+) -> bool {
+    // Parse price feed
+    let feed = parse_price_feed(feed_data);
+    
+    // Validate freshness
+    let freshness_valid = validate_freshness(feed.timestamp, current_timestamp);
+    
+    // Validate price bounds
+    let price_valid = validate_price_bounds(feed.price);
+    
+    // Check oracle authorization
+    let oracle_authorized = is_authorized_oracle(feed.oracle_pubkey, authorized_keys);
+    
+    // Construct message
+    let message = construct_message(feed.asset_id, feed.price, feed.timestamp);
+    
+    // Verify signature
+    let signature_valid = verify_signature(message, feed.signature, feed.oracle_pubkey);
+    
+    // All checks must pass
+    freshness_valid && price_valid && oracle_authorized && signature_valid
+}
+
+/// Validate multiple price feeds (for multiple assets)
+fn validate_multiple_price_feeds(
+    feed_count: u8,
+    feed_data_list: [[u8; 160]; 10],
+    current_timestamp: u64,
+    authorized_keys: [[u8; 33]; 5]
+) -> bool {
+    let mut i = 0;
+    let mut all_valid = true;
+    
+    loop {
+        match i < feed_count {
+            true => {
+                let feed_valid = validate_price_feed(
+                    feed_data_list[i as usize],
+                    current_timestamp,
+                    authorized_keys
+                );
+                
+                match feed_valid {
+                    false => { all_valid = false; }
+                    true => {}
+                };
+                
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    all_valid
+}
+
+// ============================================================================
+// Price Calculation Helpers
+// ============================================================================
+
+/// Calculate asset value in base currency
+/// value = amount * price / price_decimals
+fn calculate_asset_value(amount: u64, price: u256, price_decimals: u8) -> u256 {
+    let amount_u256 = amount as u256;
+    let divisor = 10u256.pow(price_decimals as u32);
+    amount_u256.checked_mul(price).unwrap().checked_div(divisor).unwrap()
+}
+
+/// Get price from validated feed
+fn extract_price(feed_data: [u8; 160]) -> u256 {
+    let feed = parse_price_feed(feed_data);
+    feed.price
+}
+
+/// Get timestamp from validated feed
+fn extract_timestamp(feed_data: [u8; 160]) -> u64 {
+    let feed = parse_price_feed(feed_data);
+    feed.timestamp
+}

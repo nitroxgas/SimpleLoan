@@ -1,0 +1,417 @@
+// Reserve Validator for Fantasma Protocol
+// Validates state transitions for lending pool reserves
+// Binary Layout: 320 bytes
+
+use lib::ray_math::{RAY, ray_mul, ray_div, accrue_index};
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const RESERVE_SIZE: usize = 320;
+const ASSET_ID_OFFSET: usize = 0;
+const UTXO_VERSION_OFFSET: usize = 32;
+const TOTAL_LIQUIDITY_OFFSET: usize = 64;
+const TOTAL_BORROWED_OFFSET: usize = 72;
+const LIQUIDITY_INDEX_OFFSET: usize = 80;
+const BORROW_INDEX_OFFSET: usize = 112;
+const LIQUIDITY_RATE_OFFSET: usize = 144;
+const BORROW_RATE_OFFSET: usize = 176;
+const TIMESTAMP_OFFSET: usize = 208;
+const RESERVE_FACTOR_OFFSET: usize = 216;
+const LTV_OFFSET: usize = 248;
+const LIQUIDATION_THRESHOLD_OFFSET: usize = 280;
+
+// Protocol parameters
+const UTXO_VERSION: u256 = 1;
+const MAX_RESERVE_FACTOR: u256 = RAY; // 100%
+
+// ============================================================================
+// Reserve State Structure
+// ============================================================================
+
+struct ReserveState {
+    asset_id: [u8; 32],
+    utxo_version: u256,
+    total_liquidity: u64,
+    total_borrowed: u64,
+    liquidity_index: u256,
+    variable_borrow_index: u256,
+    current_liquidity_rate: u256,
+    current_variable_borrow_rate: u256,
+    last_update_timestamp: u64,
+    reserve_factor: u256,
+    ltv: u256,
+    liquidation_threshold: u256,
+}
+
+// ============================================================================
+// Operation Types
+// ============================================================================
+
+enum Operation {
+    Supply { amount: u64 },
+    Withdraw { amount: u64 },
+    Borrow { amount: u64 },
+    Repay { amount: u64 },
+}
+
+// ============================================================================
+// Parsing Functions
+// ============================================================================
+
+/// Parse Reserve UTXO from 320-byte buffer
+fn parse_reserve(data: [u8; 320]) -> ReserveState {
+    // Extract asset_id (32 bytes at offset 0)
+    let mut asset_id = [0u8; 32];
+    let mut i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                asset_id[i] = data[ASSET_ID_OFFSET.checked_add(i).unwrap()];
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    // Extract utxo_version (32 bytes at offset 32, big-endian)
+    let utxo_version = parse_u256_be(data, UTXO_VERSION_OFFSET);
+    
+    // Extract total_liquidity (8 bytes at offset 64, big-endian)
+    let total_liquidity = parse_u64_be(data, TOTAL_LIQUIDITY_OFFSET);
+    
+    // Extract total_borrowed (8 bytes at offset 72, big-endian)
+    let total_borrowed = parse_u64_be(data, TOTAL_BORROWED_OFFSET);
+    
+    // Extract liquidity_index (32 bytes at offset 80, big-endian)
+    let liquidity_index = parse_u256_be(data, LIQUIDITY_INDEX_OFFSET);
+    
+    // Extract variable_borrow_index (32 bytes at offset 112, big-endian)
+    let variable_borrow_index = parse_u256_be(data, BORROW_INDEX_OFFSET);
+    
+    // Extract current_liquidity_rate (32 bytes at offset 144, big-endian)
+    let current_liquidity_rate = parse_u256_be(data, LIQUIDITY_RATE_OFFSET);
+    
+    // Extract current_variable_borrow_rate (32 bytes at offset 176, big-endian)
+    let current_variable_borrow_rate = parse_u256_be(data, BORROW_RATE_OFFSET);
+    
+    // Extract last_update_timestamp (8 bytes at offset 208, big-endian)
+    let last_update_timestamp = parse_u64_be(data, TIMESTAMP_OFFSET);
+    
+    // Extract reserve_factor (32 bytes at offset 216, big-endian)
+    let reserve_factor = parse_u256_be(data, RESERVE_FACTOR_OFFSET);
+    
+    // Extract ltv (32 bytes at offset 248, big-endian)
+    let ltv = parse_u256_be(data, LTV_OFFSET);
+    
+    // Extract liquidation_threshold (32 bytes at offset 280, big-endian)
+    let liquidation_threshold = parse_u256_be(data, LIQUIDATION_THRESHOLD_OFFSET);
+    
+    ReserveState {
+        asset_id,
+        utxo_version,
+        total_liquidity,
+        total_borrowed,
+        liquidity_index,
+        variable_borrow_index,
+        current_liquidity_rate,
+        current_variable_borrow_rate,
+        last_update_timestamp,
+        reserve_factor,
+        ltv,
+        liquidation_threshold,
+    }
+}
+
+/// Parse u256 from buffer (big-endian)
+fn parse_u256_be(data: [u8; 320], offset: usize) -> u256 {
+    let mut result: u256 = 0;
+    let mut i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                let byte_val = data[offset.checked_add(i).unwrap()] as u256;
+                result = result.checked_mul(256).unwrap();
+                result = result.checked_add(byte_val).unwrap();
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    result
+}
+
+/// Parse u64 from buffer (big-endian)
+fn parse_u64_be(data: [u8; 320], offset: usize) -> u64 {
+    let mut result: u64 = 0;
+    let mut i = 0;
+    loop {
+        match i < 8 {
+            true => {
+                let byte_val = data[offset.checked_add(i).unwrap()] as u64;
+                result = result.checked_mul(256).unwrap();
+                result = result.checked_add(byte_val).unwrap();
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    result
+}
+
+// ============================================================================
+// Validation Functions
+// ============================================================================
+
+/// Validate reserve state transition
+fn validate_reserve_transition(
+    old_state: ReserveState,
+    new_state: ReserveState,
+    operation: Operation,
+    current_timestamp: u64
+) -> bool {
+    // Common validations
+    let common_valid = validate_common_invariants(old_state, new_state, current_timestamp);
+    
+    match common_valid {
+        false => false,
+        true => {
+            // Operation-specific validation
+            match operation {
+                Operation::Supply { amount } => validate_supply(old_state, new_state, amount),
+                Operation::Withdraw { amount } => validate_withdraw(old_state, new_state, amount),
+                Operation::Borrow { amount } => validate_borrow(old_state, new_state, amount),
+                Operation::Repay { amount } => validate_repay(old_state, new_state, amount),
+            }
+        }
+    }
+}
+
+/// Validate common invariants across all operations
+fn validate_common_invariants(
+    old_state: ReserveState,
+    new_state: ReserveState,
+    current_timestamp: u64
+) -> bool {
+    // Asset ID must not change
+    let asset_id_valid = arrays_equal(old_state.asset_id, new_state.asset_id);
+    
+    // UTXO version must not change
+    let version_valid = old_state.utxo_version == new_state.utxo_version;
+    
+    // Timestamp must advance or stay same
+    let timestamp_valid = new_state.last_update_timestamp >= old_state.last_update_timestamp;
+    let timestamp_current = new_state.last_update_timestamp == current_timestamp;
+    
+    // Solvency invariant: total_borrowed <= total_liquidity
+    let solvency_valid = new_state.total_borrowed <= new_state.total_liquidity;
+    
+    // Index monotonicity: indices must not decrease
+    let liquidity_index_valid = new_state.liquidity_index >= old_state.liquidity_index;
+    let borrow_index_valid = new_state.variable_borrow_index >= old_state.variable_borrow_index;
+    
+    // Reserve factor bounds
+    let reserve_factor_valid = new_state.reserve_factor <= MAX_RESERVE_FACTOR;
+    
+    // LTV <= liquidation_threshold
+    let ltv_valid = new_state.ltv <= new_state.liquidation_threshold;
+    
+    // Combine all validations
+    asset_id_valid &&
+    version_valid &&
+    timestamp_valid &&
+    timestamp_current &&
+    solvency_valid &&
+    liquidity_index_valid &&
+    borrow_index_valid &&
+    reserve_factor_valid &&
+    ltv_valid
+}
+
+/// Validate supply operation
+fn validate_supply(old_state: ReserveState, new_state: ReserveState, amount: u64) -> bool {
+    // Total liquidity must increase by amount
+    let liquidity_valid = new_state.total_liquidity == old_state.total_liquidity.checked_add(amount).unwrap();
+    
+    // Total borrowed must not change
+    let borrowed_valid = new_state.total_borrowed == old_state.total_borrowed;
+    
+    // Indices should be updated (accrued)
+    let time_delta = new_state.last_update_timestamp.checked_sub(old_state.last_update_timestamp).unwrap();
+    let expected_liquidity_index = accrue_index(
+        old_state.liquidity_index,
+        old_state.current_liquidity_rate,
+        time_delta
+    );
+    let expected_borrow_index = accrue_index(
+        old_state.variable_borrow_index,
+        old_state.current_variable_borrow_rate,
+        time_delta
+    );
+    
+    let liquidity_index_valid = new_state.liquidity_index == expected_liquidity_index;
+    let borrow_index_valid = new_state.variable_borrow_index == expected_borrow_index;
+    
+    liquidity_valid && borrowed_valid && liquidity_index_valid && borrow_index_valid
+}
+
+/// Validate withdraw operation
+fn validate_withdraw(old_state: ReserveState, new_state: ReserveState, amount: u64) -> bool {
+    // Total liquidity must decrease by amount
+    let liquidity_valid = new_state.total_liquidity == old_state.total_liquidity.checked_sub(amount).unwrap();
+    
+    // Total borrowed must not change
+    let borrowed_valid = new_state.total_borrowed == old_state.total_borrowed;
+    
+    // Must maintain solvency after withdrawal
+    let solvency_valid = new_state.total_liquidity >= new_state.total_borrowed;
+    
+    // Indices should be updated (accrued)
+    let time_delta = new_state.last_update_timestamp.checked_sub(old_state.last_update_timestamp).unwrap();
+    let expected_liquidity_index = accrue_index(
+        old_state.liquidity_index,
+        old_state.current_liquidity_rate,
+        time_delta
+    );
+    let expected_borrow_index = accrue_index(
+        old_state.variable_borrow_index,
+        old_state.current_variable_borrow_rate,
+        time_delta
+    );
+    
+    let liquidity_index_valid = new_state.liquidity_index == expected_liquidity_index;
+    let borrow_index_valid = new_state.variable_borrow_index == expected_borrow_index;
+    
+    liquidity_valid && borrowed_valid && solvency_valid && liquidity_index_valid && borrow_index_valid
+}
+
+/// Validate borrow operation
+fn validate_borrow(old_state: ReserveState, new_state: ReserveState, amount: u64) -> bool {
+    // Total borrowed must increase by amount
+    let borrowed_valid = new_state.total_borrowed == old_state.total_borrowed.checked_add(amount).unwrap();
+    
+    // Total liquidity must decrease by amount (funds leaving pool)
+    let liquidity_valid = new_state.total_liquidity == old_state.total_liquidity.checked_sub(amount).unwrap();
+    
+    // Available liquidity check
+    let available = old_state.total_liquidity.checked_sub(old_state.total_borrowed).unwrap();
+    let availability_valid = amount <= available;
+    
+    // Must maintain solvency
+    let solvency_valid = new_state.total_borrowed <= new_state.total_liquidity;
+    
+    // Indices should be updated (accrued)
+    let time_delta = new_state.last_update_timestamp.checked_sub(old_state.last_update_timestamp).unwrap();
+    let expected_liquidity_index = accrue_index(
+        old_state.liquidity_index,
+        old_state.current_liquidity_rate,
+        time_delta
+    );
+    let expected_borrow_index = accrue_index(
+        old_state.variable_borrow_index,
+        old_state.current_variable_borrow_rate,
+        time_delta
+    );
+    
+    let liquidity_index_valid = new_state.liquidity_index == expected_liquidity_index;
+    let borrow_index_valid = new_state.variable_borrow_index == expected_borrow_index;
+    
+    borrowed_valid && liquidity_valid && availability_valid && solvency_valid && 
+    liquidity_index_valid && borrow_index_valid
+}
+
+/// Validate repay operation
+fn validate_repay(old_state: ReserveState, new_state: ReserveState, amount: u64) -> bool {
+    // Total borrowed must decrease by amount (capped at old_state.total_borrowed)
+    let max_repay = old_state.total_borrowed;
+    let actual_repay = match amount > max_repay {
+        true => max_repay,
+        false => amount
+    };
+    
+    let borrowed_valid = new_state.total_borrowed == old_state.total_borrowed.checked_sub(actual_repay).unwrap();
+    
+    // Total liquidity must increase by amount (funds returning to pool)
+    let liquidity_valid = new_state.total_liquidity == old_state.total_liquidity.checked_add(actual_repay).unwrap();
+    
+    // Indices should be updated (accrued)
+    let time_delta = new_state.last_update_timestamp.checked_sub(old_state.last_update_timestamp).unwrap();
+    let expected_liquidity_index = accrue_index(
+        old_state.liquidity_index,
+        old_state.current_liquidity_rate,
+        time_delta
+    );
+    let expected_borrow_index = accrue_index(
+        old_state.variable_borrow_index,
+        old_state.current_variable_borrow_rate,
+        time_delta
+    );
+    
+    let liquidity_index_valid = new_state.liquidity_index == expected_liquidity_index;
+    let borrow_index_valid = new_state.variable_borrow_index == expected_borrow_index;
+    
+    borrowed_valid && liquidity_valid && liquidity_index_valid && borrow_index_valid
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Compare two byte arrays for equality
+fn arrays_equal(a: [u8; 32], b: [u8; 32]) -> bool {
+    let mut i = 0;
+    let mut equal = true;
+    loop {
+        match i < 32 {
+            true => {
+                match a[i] == b[i] {
+                    true => {},
+                    false => { equal = false; }
+                };
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    equal
+}
+
+// ============================================================================
+// Main Validator Entry Point
+// ============================================================================
+
+/// Main validator function called by Simplicity runtime
+/// 
+/// # Arguments
+/// * `old_utxo` - Previous reserve UTXO (320 bytes)
+/// * `new_utxo` - New reserve UTXO (320 bytes)
+/// * `operation_type` - Type of operation (1=Supply, 2=Withdraw, 3=Borrow, 4=Repay)
+/// * `amount` - Operation amount in satoshis
+/// * `current_timestamp` - Current block timestamp
+///
+/// # Returns
+/// true if transition is valid, false otherwise
+fn main(
+    old_utxo: [u8; 320],
+    new_utxo: [u8; 320],
+    operation_type: u8,
+    amount: u64,
+    current_timestamp: u64
+) -> bool {
+    // Parse old and new states
+    let old_state = parse_reserve(old_utxo);
+    let new_state = parse_reserve(new_utxo);
+    
+    // Determine operation
+    let operation = match operation_type {
+        1 => Operation::Supply { amount },
+        2 => Operation::Withdraw { amount },
+        3 => Operation::Borrow { amount },
+        4 => Operation::Repay { amount },
+        _ => panic!("Invalid operation type")
+    };
+    
+    // Validate transition
+    validate_reserve_transition(old_state, new_state, operation, current_timestamp)
+}

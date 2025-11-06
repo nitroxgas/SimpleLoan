@@ -1,0 +1,531 @@
+// Debt Validator for Fantasma Protocol
+// Validates borrowing positions and health factor
+// Binary Layout: 128 bytes (debt) + 80 bytes (collateral)
+
+use lib::ray_math::{RAY, ray_mul, ray_div};
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const DEBT_SIZE: usize = 128;
+const COLLATERAL_SIZE: usize = 80;
+
+// Debt UTXO offsets
+const USER_ADDRESS_OFFSET: usize = 0;
+const POSITION_ID_OFFSET: usize = 20;
+const BORROWED_ASSET_ID_OFFSET: usize = 52;
+const PRINCIPAL_OFFSET: usize = 84;
+const BORROW_INDEX_AT_OPEN_OFFSET: usize = 92;
+
+// Collateral UTXO offsets
+const COLL_POSITION_ID_OFFSET: usize = 0;
+const COLL_ASSET_ID_OFFSET: usize = 32;
+const COLL_AMOUNT_OFFSET: usize = 64;
+
+// Protocol parameters
+const LIQUIDATION_BONUS: u256 = 50000000000000000000000000; // 5% in RAY (0.05 * 10^27)
+const HEALTH_FACTOR_THRESHOLD: u256 = RAY; // 1.0 in RAY
+
+// ============================================================================
+// State Structures
+// ============================================================================
+
+struct DebtPosition {
+    user_address: [u8; 20],
+    position_id: u256,
+    borrowed_asset_id: [u8; 32],
+    principal: u64,
+    borrow_index_at_open: u256,
+}
+
+struct CollateralPosition {
+    position_id: u256,
+    collateral_asset_id: [u8; 32],
+    collateral_amount: u64,
+}
+
+enum DebtOperation {
+    Borrow { collateral_value: u256, debt_value: u256, ltv: u256 },
+    Repay { amount: u64 },
+    Liquidate { liquidation_amount: u64, collateral_seized: u64 },
+}
+
+// ============================================================================
+// Parsing Functions
+// ============================================================================
+
+/// Parse Debt UTXO from 128-byte buffer
+fn parse_debt(data: [u8; 128]) -> DebtPosition {
+    // Extract user_address (20 bytes at offset 0)
+    let mut user_address = [0u8; 20];
+    let mut i = 0;
+    loop {
+        match i < 20 {
+            true => {
+                user_address[i] = data[USER_ADDRESS_OFFSET.checked_add(i).unwrap()];
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    // Extract position_id (32 bytes at offset 20, big-endian)
+    let position_id = parse_u256_be_debt(data, POSITION_ID_OFFSET);
+    
+    // Extract borrowed_asset_id (32 bytes at offset 52)
+    let mut borrowed_asset_id = [0u8; 32];
+    i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                borrowed_asset_id[i] = data[BORROWED_ASSET_ID_OFFSET.checked_add(i).unwrap()];
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    // Extract principal (8 bytes at offset 84, big-endian)
+    let principal = parse_u64_be_debt(data, PRINCIPAL_OFFSET);
+    
+    // Extract borrow_index_at_open (32 bytes at offset 92, big-endian)
+    let borrow_index_at_open = parse_u256_be_debt(data, BORROW_INDEX_AT_OPEN_OFFSET);
+    
+    DebtPosition {
+        user_address,
+        position_id,
+        borrowed_asset_id,
+        principal,
+        borrow_index_at_open,
+    }
+}
+
+/// Parse Collateral UTXO from 80-byte buffer
+fn parse_collateral(data: [u8; 80]) -> CollateralPosition {
+    // Extract position_id (32 bytes at offset 0, big-endian)
+    let position_id = parse_u256_be_coll(data, COLL_POSITION_ID_OFFSET);
+    
+    // Extract collateral_asset_id (32 bytes at offset 32)
+    let mut collateral_asset_id = [0u8; 32];
+    let mut i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                collateral_asset_id[i] = data[COLL_ASSET_ID_OFFSET.checked_add(i).unwrap()];
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    
+    // Extract collateral_amount (8 bytes at offset 64, big-endian)
+    let collateral_amount = parse_u64_be_coll(data, COLL_AMOUNT_OFFSET);
+    
+    CollateralPosition {
+        position_id,
+        collateral_asset_id,
+        collateral_amount,
+    }
+}
+
+/// Parse u256 from debt buffer (big-endian)
+fn parse_u256_be_debt(data: [u8; 128], offset: usize) -> u256 {
+    let mut result: u256 = 0;
+    let mut i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                let byte_val = data[offset.checked_add(i).unwrap()] as u256;
+                result = result.checked_mul(256).unwrap();
+                result = result.checked_add(byte_val).unwrap();
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    result
+}
+
+/// Parse u64 from debt buffer (big-endian)
+fn parse_u64_be_debt(data: [u8; 128], offset: usize) -> u64 {
+    let mut result: u64 = 0;
+    let mut i = 0;
+    loop {
+        match i < 8 {
+            true => {
+                let byte_val = data[offset.checked_add(i).unwrap()] as u64;
+                result = result.checked_mul(256).unwrap();
+                result = result.checked_add(byte_val).unwrap();
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    result
+}
+
+/// Parse u256 from collateral buffer (big-endian)
+fn parse_u256_be_coll(data: [u8; 80], offset: usize) -> u256 {
+    let mut result: u256 = 0;
+    let mut i = 0;
+    loop {
+        match i < 32 {
+            true => {
+                let byte_val = data[offset.checked_add(i).unwrap()] as u256;
+                result = result.checked_mul(256).unwrap();
+                result = result.checked_add(byte_val).unwrap();
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    result
+}
+
+/// Parse u64 from collateral buffer (big-endian)
+fn parse_u64_be_coll(data: [u8; 80], offset: usize) -> u64 {
+    let mut result: u64 = 0;
+    let mut i = 0;
+    loop {
+        match i < 8 {
+            true => {
+                let byte_val = data[offset.checked_add(i).unwrap()] as u64;
+                result = result.checked_mul(256).unwrap();
+                result = result.checked_add(byte_val).unwrap();
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    result
+}
+
+// ============================================================================
+// Health Factor Calculations
+// ============================================================================
+
+/// Calculate current debt based on index ratio
+/// Formula: current_debt = principal * (current_index / initial_index)
+fn calculate_current_debt(
+    principal: u64,
+    initial_index: u256,
+    current_index: u256
+) -> u64 {
+    let principal_ray = (principal as u256).checked_mul(RAY).unwrap();
+    let index_ratio = ray_div(current_index, initial_index);
+    let current_debt_ray = ray_mul(principal_ray, index_ratio);
+    let current_debt = current_debt_ray.checked_div(RAY).unwrap();
+    current_debt as u64
+}
+
+/// Calculate health factor
+/// Formula: HF = (collateral_value * liquidation_threshold) / debt_value
+/// 
+/// # Arguments
+/// * `collateral_value` - Value of collateral in base currency (RAY precision)
+/// * `debt_value` - Value of debt in base currency (RAY precision)
+/// * `liquidation_threshold` - Liquidation threshold percentage (RAY)
+///
+/// # Returns
+/// Health factor in RAY precision (1.0 = RAY = healthy)
+fn calculate_health_factor(
+    collateral_value: u256,
+    debt_value: u256,
+    liquidation_threshold: u256
+) -> u256 {
+    match debt_value {
+        0 => u256::MAX, // No debt = infinite health
+        _ => {
+            let weighted_collateral = ray_mul(collateral_value, liquidation_threshold);
+            ray_div(weighted_collateral, debt_value)
+        }
+    }
+}
+
+/// Check if position is liquidatable
+/// Position is liquidatable if health_factor < 1.0 (RAY)
+fn is_liquidatable(health_factor: u256) -> bool {
+    health_factor < HEALTH_FACTOR_THRESHOLD
+}
+
+// ============================================================================
+// Validation Functions
+// ============================================================================
+
+/// Validate borrow operation
+fn validate_borrow(
+    debt: DebtPosition,
+    collateral: CollateralPosition,
+    collateral_value: u256,
+    debt_value: u256,
+    ltv: u256
+) -> bool {
+    // Position IDs must match
+    let position_id_valid = debt.position_id == collateral.position_id;
+    
+    // Principal must be positive
+    let principal_valid = debt.principal > 0;
+    
+    // Collateral must be positive
+    let collateral_valid = collateral.collateral_amount > 0;
+    
+    // Check LTV constraint: debt_value <= collateral_value * ltv
+    let max_debt = ray_mul(collateral_value, ltv);
+    let ltv_valid = debt_value <= max_debt;
+    
+    // Initial index must be positive
+    let index_valid = debt.borrow_index_at_open > 0;
+    
+    position_id_valid && principal_valid && collateral_valid && ltv_valid && index_valid
+}
+
+/// Validate repayment operation
+fn validate_repay(
+    old_debt: DebtPosition,
+    new_debt: DebtPosition,
+    old_collateral: CollateralPosition,
+    new_collateral: CollateralPosition,
+    repay_amount: u64,
+    current_borrow_index: u256
+) -> bool {
+    // Calculate current debt
+    let current_debt = calculate_current_debt(
+        old_debt.principal,
+        old_debt.borrow_index_at_open,
+        current_borrow_index
+    );
+    
+    // Actual repayment is capped at current debt
+    let actual_repay = match repay_amount > current_debt {
+        true => current_debt,
+        false => repay_amount
+    };
+    
+    // Calculate new debt after repayment
+    let remaining_debt = current_debt.checked_sub(actual_repay).unwrap();
+    
+    // Position IDs must match
+    let debt_id_valid = old_debt.position_id == new_debt.position_id;
+    let coll_id_valid = old_collateral.position_id == new_collateral.position_id;
+    let match_valid = old_debt.position_id == old_collateral.position_id;
+    
+    // If full repayment, position should be closed (not validated here, happens externally)
+    // If partial, update principal to represent remaining debt at current index
+    let partial_repay_valid = match remaining_debt {
+        0 => true, // Full repayment
+        _ => {
+            // New principal represents remaining debt at current index
+            let expected_principal = remaining_debt;
+            let principal_valid = new_debt.principal == expected_principal;
+            let index_valid = new_debt.borrow_index_at_open == current_borrow_index;
+            
+            // Proportional collateral release
+            let collateral_released = ray_mul(
+                (old_collateral.collateral_amount as u256).checked_mul(RAY).unwrap(),
+                ray_div((actual_repay as u256).checked_mul(RAY).unwrap(), (current_debt as u256).checked_mul(RAY).unwrap())
+            ).checked_div(RAY).unwrap();
+            
+            let expected_collateral = old_collateral.collateral_amount.checked_sub(collateral_released as u64).unwrap();
+            let collateral_valid = new_collateral.collateral_amount == expected_collateral;
+            
+            principal_valid && index_valid && collateral_valid
+        }
+    };
+    
+    debt_id_valid && coll_id_valid && match_valid && partial_repay_valid
+}
+
+/// Validate liquidation operation
+fn validate_liquidation(
+    old_debt: DebtPosition,
+    new_debt_opt: Option<DebtPosition>,
+    old_collateral: CollateralPosition,
+    new_collateral_opt: Option<CollateralPosition>,
+    liquidation_amount: u64,
+    collateral_seized: u64,
+    current_borrow_index: u256,
+    collateral_value: u256,
+    debt_value: u256,
+    liquidation_threshold: u256
+) -> bool {
+    // Calculate current debt
+    let current_debt = calculate_current_debt(
+        old_debt.principal,
+        old_debt.borrow_index_at_open,
+        current_borrow_index
+    );
+    
+    // Calculate health factor
+    let health_factor = calculate_health_factor(collateral_value, debt_value, liquidation_threshold);
+    
+    // Position must be unhealthy
+    let liquidatable = is_liquidatable(health_factor);
+    
+    // Liquidation amount must not exceed current debt
+    let amount_valid = liquidation_amount <= current_debt;
+    
+    // Calculate expected collateral to seize (with bonus)
+    let collateral_base_ray = ray_mul(
+        (old_collateral.collateral_amount as u256).checked_mul(RAY).unwrap(),
+        ray_div((liquidation_amount as u256).checked_mul(RAY).unwrap(), (current_debt as u256).checked_mul(RAY).unwrap())
+    ).checked_div(RAY).unwrap();
+    
+    let collateral_bonus = ray_mul(collateral_base_ray, LIQUIDATION_BONUS).checked_div(RAY).unwrap();
+    let expected_seized = collateral_base_ray.checked_add(collateral_bonus).unwrap();
+    
+    // Seized amount must not exceed available collateral
+    let max_seized = old_collateral.collateral_amount as u256;
+    let actual_seized = match expected_seized > max_seized {
+        true => max_seized,
+        false => expected_seized
+    };
+    
+    let seized_valid = (collateral_seized as u256) == actual_seized;
+    
+    // Validate remaining position state
+    let remaining_valid = match liquidation_amount >= current_debt {
+        true => {
+            // Full liquidation - position should be closed
+            match (new_debt_opt, new_collateral_opt) {
+                (None, None) => true,
+                _ => false
+            }
+        }
+        false => {
+            // Partial liquidation - position continues
+            match (new_debt_opt, new_collateral_opt) {
+                (Some(new_debt), Some(new_collateral)) => {
+                    let remaining_debt = current_debt.checked_sub(liquidation_amount).unwrap();
+                    let remaining_collateral = old_collateral.collateral_amount.checked_sub(collateral_seized).unwrap();
+                    
+                    let debt_valid = new_debt.principal == remaining_debt;
+                    let index_valid = new_debt.borrow_index_at_open == current_borrow_index;
+                    let collateral_valid = new_collateral.collateral_amount == remaining_collateral;
+                    
+                    debt_valid && index_valid && collateral_valid
+                }
+                _ => false
+            }
+        }
+    };
+    
+    liquidatable && amount_valid && seized_valid && remaining_valid
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Compare two byte arrays for equality (20 bytes)
+fn arrays_equal_20(a: [u8; 20], b: [u8; 20]) -> bool {
+    let mut i = 0;
+    let mut equal = true;
+    loop {
+        match i < 20 {
+            true => {
+                match a[i] == b[i] {
+                    true => {},
+                    false => { equal = false; }
+                };
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    equal
+}
+
+/// Compare two byte arrays for equality (32 bytes)
+fn arrays_equal_32(a: [u8; 32], b: [u8; 32]) -> bool {
+    let mut i = 0;
+    let mut equal = true;
+    loop {
+        match i < 32 {
+            true => {
+                match a[i] == b[i] {
+                    true => {},
+                    false => { equal = false; }
+                };
+                i = i.checked_add(1).unwrap();
+            }
+            false => break
+        }
+    };
+    equal
+}
+
+// ============================================================================
+// Main Validator Entry Points
+// ============================================================================
+
+/// Validate borrow transaction
+fn validate_borrow_transaction(
+    debt_utxo: [u8; 128],
+    collateral_utxo: [u8; 80],
+    collateral_value: u256,
+    debt_value: u256,
+    ltv: u256
+) -> bool {
+    let debt = parse_debt(debt_utxo);
+    let collateral = parse_collateral(collateral_utxo);
+    validate_borrow(debt, collateral, collateral_value, debt_value, ltv)
+}
+
+/// Validate repay transaction
+fn validate_repay_transaction(
+    old_debt_utxo: [u8; 128],
+    new_debt_utxo: [u8; 128],
+    old_collateral_utxo: [u8; 80],
+    new_collateral_utxo: [u8; 80],
+    repay_amount: u64,
+    current_borrow_index: u256
+) -> bool {
+    let old_debt = parse_debt(old_debt_utxo);
+    let new_debt = parse_debt(new_debt_utxo);
+    let old_collateral = parse_collateral(old_collateral_utxo);
+    let new_collateral = parse_collateral(new_collateral_utxo);
+    
+    validate_repay(old_debt, new_debt, old_collateral, new_collateral, repay_amount, current_borrow_index)
+}
+
+/// Validate liquidation transaction
+fn validate_liquidation_transaction(
+    old_debt_utxo: [u8; 128],
+    old_collateral_utxo: [u8; 80],
+    has_remaining: bool,
+    new_debt_utxo: [u8; 128],
+    new_collateral_utxo: [u8; 80],
+    liquidation_amount: u64,
+    collateral_seized: u64,
+    current_borrow_index: u256,
+    collateral_value: u256,
+    debt_value: u256,
+    liquidation_threshold: u256
+) -> bool {
+    let old_debt = parse_debt(old_debt_utxo);
+    let old_collateral = parse_collateral(old_collateral_utxo);
+    
+    let new_debt_opt = match has_remaining {
+        true => Some(parse_debt(new_debt_utxo)),
+        false => None
+    };
+    
+    let new_collateral_opt = match has_remaining {
+        true => Some(parse_collateral(new_collateral_utxo)),
+        false => None
+    };
+    
+    validate_liquidation(
+        old_debt,
+        new_debt_opt,
+        old_collateral,
+        new_collateral_opt,
+        liquidation_amount,
+        collateral_seized,
+        current_borrow_index,
+        collateral_value,
+        debt_value,
+        liquidation_threshold
+    )
+}
