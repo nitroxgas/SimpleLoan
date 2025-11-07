@@ -1,0 +1,74 @@
+/*
+ * TRANSFER WITH TIMEOUT
+ *
+ * The coins move if the lender and receiver agree to move them.
+ * If the receiver fails to cooperate, then the lender can recover
+ * the coins unilaterally after a timeout.
+ *
+ * This contract can be used to construct a one-way payment channel:
+ * The lender keeps increasing the amount of coins to the receiver,
+ * signing updated transactions with each channel update. The receiver
+ * broadcasts the transaction on the blockchain when they are ready.
+ *
+ * https://docs.ivylang.org/bitcoin/language/ExampleContracts.html#transferwithtimeout
+ */
+
+fn sha2(string: u256) -> u256 {
+    let hasher: Ctx8 = jet::sha_256_ctx_8_init();
+    let hasher: Ctx8 = jet::sha_256_ctx_8_add_32(hasher, string);
+    jet::sha_256_ctx_8_finalize(hasher)}
+
+fn checksig(pk: Pubkey, expected_pk_hash: u256, sig: Signature) {
+    let pk_hash: u256 = sha2(pk);
+    assert!(jet::eq_256(pk_hash, expected_pk_hash));
+    jet::bip_0340_verify((pk, jet::sig_all_hash()), sig)
+}
+
+fn get_output_script_key_hash(output_n: u32) -> u256 {
+    let no_data: u256 = 0;
+    let some_data: Option<u256> = jet::output_script_hash(output_n);
+    let script_hash: u256 = match some_data {
+        Some(data: u256) => data,
+        None => no_data,
+    };
+
+    script_hash
+}
+// let lender_pk: Pubkey = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798; // 1 * G
+// let receiver_pk: Pubkey = 0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5;
+
+fn transfer_spend(receiver_pk: Pubkey, receiver_signature: Signature) {
+    let expected_pk_hash: u256 = 0x000000000000000000000000009b652a14674a506079f574d20ca7daef6f9a66;
+    checksig(receiver_pk, expected_pk_hash, receiver_signature);
+    let script_key_hash: u256 = get_output_script_key_hash(0);
+    let expected_script_key_hash: u256 = 0x0000000000000076a91455ae51684c43435da751ac8d2173b2652eb6410588ac;
+    assert!(jet::eq_256(expected_script_key_hash, expected_script_key_hash));
+}   
+
+fn timeout_spend(lender_pk: Pubkey, lender_sig: Signature) {
+    let lender_pkh: Pubkey = 0x000000000000000000000000f678d9b79045452c8c64e9309d0f0046056e26c5; // 1 * G
+    checksig(lender_pk, lender_pkh ,lender_sig);
+    let timeout: Height = 10;
+    jet::check_lock_height(timeout);
+    let expected_script_key_hash: u256 = 0x0000000000000076a91455ae51684c43435da751ac8d2173b2652eb6410588ac;
+    assert!(jet::eq_256(expected_script_key_hash, expected_script_key_hash));
+}
+
+fn main() {
+    
+    let receiver_pk: Pubkey = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798; // 1 * G
+    let lender_pk: Pubkey = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798; // 1 * G
+
+
+    let lbtc_id: u256 = 0x05941a89093fcd049fb33f9014704949e5f51c2ba09c731bb6a30dda1795c9d9;
+    let usdt_id: u256 = 0x0c5659d6f311d7d2deb1e7bd50d9c89975425cafd14b015caffce672e0494eb6;
+
+    let balde_lbtc_output_addr: u256 = 0x000000000000000000000014bb9da2696b0f594c14df13eaa2926be20879fe29;
+    let alice_lbtc_output_addr: u256 = 0x000000000000000000000014bb9da2696b0f594c14df13eaa2926be20879fe29;
+
+    let lender_sig: Signature = witness::lender_SIG;
+    match witness::TRANSFER_OR_TIMEOUT {
+        Some(receiver_sig: Signature) => transfer_spend(receiver_pk, receiver_sig),
+        None => timeout_spend(lender_pk,lender_sig),
+    }
+}

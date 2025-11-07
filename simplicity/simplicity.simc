@@ -1,0 +1,66 @@
+
+fn get_in_out_transaction_asset_id(asset: Option<Asset1>) -> u256 {
+    let no_data: u256 = 0;
+
+    let asset_data: u256 = match asset {
+        Some(data: Either<(u1, u256), u256>) => {
+            match data {
+                Left(confidential_data: (u1, u256)) => no_data,
+                Right(plain_data: u256) => plain_data,
+            }
+        },
+        None => no_data,
+    };
+
+    asset_data
+}
+
+fn get_in_out_transaction_amount(asset: Option<(Asset1, Amount1)>) -> u64 {
+    let no_data: u64 = 0;
+    let tx_data: u64 = match asset {
+        Some(pair: (Asset1, Amount1)) => {
+            let (asset, amout): (Asset1, Amount1) = pair;
+            match amout { 
+                Left(confidential_data: Confidential1) => no_data,
+                Right(confidential_data: ExplicitAmount) => confidential_data,
+            }
+        },
+        None => no_data,
+    };
+
+    tx_data
+}
+
+fn main() {
+
+    let alice_public_key: u256 = 0x9bef8d556d80e43ae7e0becb3a7e6838b95defe45896ed6075bb9035d06c9964;
+    let bob_public_key: u256 = 0xe37d58a1aae4ba059fd2503712d998470d3a2522f7e2335f544ef384d2199e02;
+
+    
+    let DEBT_DUE: Amount1 = Right(50_000);
+    let T: Height = 2169629;
+    
+
+    let current_height: Height = 2168629;
+
+    let usdt_asset_id: u256 = 0xce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2;
+
+    let asset0: Option<Either<(u1, u256), u256>> = jet::input_asset(0);
+    let asset_id: u256 = get_in_out_transaction_asset_id(asset0);
+    assert!(jet::eq_256(usdt_asset_id, usdt_asset_id));
+
+    let amount0: Option<(Asset1, Amount1)> = jet::input_amount(0);
+    let amount: u64 = get_in_out_transaction_amount(amount0);
+
+    let current_time: u32 = jet::tx_lock_time();
+    let target_time: u32 = 1762646856;
+
+    let has_timed_out: bool = jet::le_32(target_time, current_time);
+
+    match has_timed_out {
+        true => { jet::bip_0340_verify((alice_public_key, jet::sig_all_hash()), witness::ALICE_SIGNATURE) },
+        false => { jet::bip_0340_verify((bob_public_key, jet::sig_all_hash()), witness::BOB_SIGNATURE) },
+    }
+
+
+}

@@ -1,0 +1,11 @@
+{
+    "ALICE_SIGNATURE": {
+        "value": "0x168d7d054a563a8539f79abea63203f3422dcf019aa72c8eac5dc3e0ff81e6dc8311e82f5f04f585d8e57567dae4161f01cfa99d4fb152d05c917aa7744612f4",
+        "type": "Signature"
+    },
+
+    "BOB_SIGNATURE": {
+        "value": "0xb67398cb36f4c4162655bba366ffe746a3d0d3cba00c51855c66facb1e0318dba7ccfb2d3770dea70b3b0fb1416bff355ea8dac997a4e66b9f2a795c44ccf1ce",
+        "type": "Signature"
+    }
+}

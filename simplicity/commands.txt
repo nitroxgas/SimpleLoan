@@ -1,0 +1,197 @@
+== Blockchain ==
+getbestblockhash
+getblock "blockhash" ( verbosity )
+getblockchaininfo
+getblockcount
+getblockfilter "blockhash" ( "filtertype" )
+getblockfrompeer "blockhash" peer_id
+getblockhash height
+getblockheader "blockhash" ( verbose )
+getblockstats hash_or_height ( stats )
+getchaintips
+getchaintxstats ( nblocks "blockhash" )
+getdeploymentinfo ( "blockhash" )
+getdifficulty
+getmempoolancestors "txid" ( verbose )
+getmempooldescendants "txid" ( verbose )
+getmempoolentry "txid"
+getmempoolinfo
+getrawmempool ( verbose mempool_sequence )
+getsidechaininfo
+gettxout "txid" n ( include_mempool )
+gettxoutproof ["txid",...] ( "blockhash" )
+gettxoutsetinfo ( "hash_type" hash_or_height use_index )
+preciousblock "blockhash"
+pruneblockchain height
+savemempool
+scantxoutset "action" ( [scanobjects,...] )
+verifychain ( checklevel nblocks )
+verifytxoutproof "proof"
+
+== Control ==
+getmemoryinfo ( "mode" )
+getrpcinfo
+help ( "command" )
+logging ( ["include_category",...] ["exclude_category",...] )
+stop
+uptime
+
+== Generating ==
+combineblocksigs "blockhex" [{"pubkey":"hex","sig":"hex"},...] ( "witnessScript" )
+consumecompactsketch "sketch"
+consumegetblocktxn "full_block" "block_tx_req"
+finalizecompactblock "compact_hex" "block_transactions" "found_transactions"
+getcompactsketch "block_hex"
+getnewblockhex ( min_tx_age proposed_parameters ["",...] )
+
+== Mining ==
+getblocktemplate ( "template_request" )
+getmininginfo
+getnetworkhashps ( nblocks height )
+prioritisetransaction "txid" ( dummy ) fee_delta
+submitblock "hexdata" ( "dummy" )
+submitheader "hexdata"
+testproposedblock "blockhex" ( acceptnonstd )
+
+== Network ==
+addnode "node" "command"
+clearbanned
+disconnectnode ( "address" nodeid )
+getaddednodeinfo ( "node" )
+getconnectioncount
+getnettotals
+getnetworkinfo
+getnodeaddresses ( count "network" )
+getpeerinfo
+listbanned
+ping
+setban "subnet" "command" ( bantime absolute )
+setnetworkactive state
+
+== Rawtransactions ==
+analyzepsbt "psbt"
+calculateasset "txid" vout ( "asset_entropy" blind_reissuance )
+combinepsbt ["psbt",...]
+combinerawtransaction ["hexstring",...]
+converttopsbt "hexstring" ( permitsigdata iswitness )
+createpsbt [{"txid":"hex","vout":n,"sequence":n,"pegin_bitcoin_tx":"hex","pegin_txout_proof":"hex","pegin_claim_script":"hex","issuance_amount":n,"issuance_tokens":n,"asset_entropy":"hex","asset_blinding_nonce":"hex","blind_reissuance":bool},...] [{"address":amount,"blinder_index":n,"asset":"str",...},{"data":"hex"},...] ( locktime replaceable psbt_version )
+createrawtransaction [{"txid":"hex","vout":n,"sequence":n,"pegin_bitcoin_tx":"hex","pegin_txout_proof":"hex","pegin_claim_script":"hex"},...] [{"address":amount,"asset":"str",...},{"data":"hex"},{"vdata":"hex"},{"burn":"hex"},{"fee":amount},...] ( locktime replaceable )
+decodepsbt "psbt"
+decoderawtransaction "hexstring" ( iswitness )
+decodescript "hexstring"
+finalizepsbt "psbt" ( extract )
+fundrawtransaction "hexstring" ( options iswitness {"pubkeys":["pubkey",...],"scripts":["script",...],"descriptors":["descriptor",...]} )
+getrawtransaction "txid" ( verbose "blockhash" )
+parsepsbt "psbt"
+rawblindrawtransaction "hexstring" ["inputamountblinder",...] [inputamount,...] ["inputasset",...] ["inputassetblinder",...] ( "totalblinder" ignoreblindfail )
+rawissueasset "transaction" [{"asset_amount":amount,"asset_address":"str","token_amount":amount,"token_address":"str","blind":bool,"contract_hash":"hex"},...]
+rawreissueasset "transaction" [{"asset_amount":amount,"asset_address":"str","input_index":n,"asset_blinder":"hex","entropy":"hex"},...]
+sendrawtransaction "hexstring" ( maxfeerate )
+signrawtransactionwithkey "hexstring" ["privatekey",...] ( [{"txid":"hex","vout":n,"scriptPubKey":"hex","redeemScript":"hex","witnessScript":"hex","amount":amount,"amountcommitment":"hex"},...] "sighashtype" )
+testmempoolaccept ["rawtx",...] ( maxfeerate )
+updatepsbtpegin "psbt" input ( value "bitcoin_tx" "txout_proof" "claim_script" "genesis_hash" )
+utxoupdatepsbt "psbt" ( ["",{"desc":"str","range":n or [n,n]},...] )
+
+== Signer ==
+enumeratesigners
+
+== Util ==
+createblindedaddress "address" "blinding_key"
+createmultisig nrequired ["key",...] ( "address_type" )
+deriveaddresses "descriptor" ( range )
+dumpassetlabels
+estimatesmartfee conf_target ( "estimate_mode" )
+getdescriptorinfo "descriptor"
+getindexinfo ( "index_name" )
+getpakinfo
+signmessagewithprivkey "privkey" "message"
+tweakfedpegscript "claim_script" ( "fedpegscript" )
+validateaddress "address"
+verifymessage "address" "signature" "message"
+
+== Wallet ==
+abandontransaction "txid"
+abortrescan
+addmultisigaddress nrequired ["key",...] ( "label" "address_type" )
+backupwallet "destination"
+blindrawtransaction "hexstring" ( ignoreblindfail ["assetcommitment",...] blind_issuances "totalblinder" )
+bumpfee "txid" ( options )
+claimpegin "bitcoin_tx" "txoutproof" ( "claim_script" )
+createrawpegin "bitcoin_tx" "txoutproof" ( "claim_script" )
+createwallet "wallet_name" ( disable_private_keys blank "passphrase" avoid_reuse descriptors load_on_startup external_signer )
+destroyamount "asset" amount ( "comment" verbose )
+dumpblindingkey "address"
+dumpissuanceblindingkey "txid" vin
+dumpmasterblindingkey
+dumpprivkey "address"
+dumpwallet "filename"
+encryptwallet "passphrase"
+getaddressesbylabel "label"
+getaddressinfo "address"
+getbalance ( "dummy" minconf include_watchonly avoid_reuse "assetlabel" )
+getbalances
+getnewaddress ( "label" "address_type" )
+getpeginaddress
+getrawchangeaddress ( "address_type" )
+getreceivedbyaddress "address" ( minconf "assetlabel" include_immature_coinbase )
+getreceivedbylabel "label" ( minconf "assetlabel" include_immature_coinbase )
+gettransaction "txid" ( include_watchonly verbose "assetlabel" )
+getunconfirmedbalance
+getwalletinfo
+getwalletpakinfo
+importaddress "address" ( "label" rescan p2sh )
+importblindingkey "address" "hexkey"
+importdescriptors "requests"
+importissuanceblindingkey "txid" vin "blindingkey"
+importmasterblindingkey "hexkey"
+importmulti "requests" ( "options" )
+importprivkey "privkey" ( "label" rescan )
+importprunedfunds "rawtransaction" "txoutproof"
+importpubkey "pubkey" ( "label" rescan )
+importwallet "filename"
+initpegoutwallet "bitcoin_descriptor" ( bip32_counter "liquid_pak" )
+issueasset assetamount tokenamount ( blind "contract_hash" )
+keypoolrefill ( newsize )
+listaddressgroupings
+listdescriptors ( private )
+listissuances ( "asset" )
+listlabels ( "purpose" )
+listlockunspent
+listreceivedbyaddress ( minconf include_empty include_watchonly "address_filter" "assetlabel" include_immature_coinbase )
+listreceivedbylabel ( minconf include_empty include_watchonly include_immature_coinbase )
+listsinceblock ( "blockhash" target_confirmations include_watchonly include_removed )
+listtransactions ( "label" count skip include_watchonly )
+listunspent ( minconf maxconf ["address",...] include_unsafe query_options )
+listwalletdir
+listwallets
+loadwallet "filename" ( load_on_startup )
+lockunspent unlock ( [{"txid":"hex","vout":n},...] persistent )
+newkeypool
+psbtbumpfee "txid" ( options )
+reissueasset "asset" assetamount
+removeprunedfunds "txid"
+rescanblockchain ( start_height stop_height )
+restorewallet "wallet_name" "backup_file" ( load_on_startup )
+send [{"address":amount,...},{"data":"hex"},...] ( conf_target "estimate_mode" fee_rate options )
+sendmany "" {"address":amount,...} ( minconf "comment" ["address",...] replaceable conf_target "estimate_mode" {"address":"str"} ignoreblindfail fee_rate verbose )
+sendtoaddress "address" amount ( "comment" "comment_to" subtractfeefromamount replaceable conf_target "estimate_mode" avoid_reuse "assetlabel" ignoreblindfail fee_rate verbose )
+sendtomainchain "address" amount ( subtractfeefromamount verbose )
+sethdseed ( newkeypool "seed" )
+setlabel "address" "label"
+settxfee amount
+setwalletflag "flag" ( value )
+signblock "blockhex" ( "witnessScript" )
+signmessage "address" "message"
+signrawtransactionwithwallet "hexstring" ( [{"txid":"hex","vout":n,"scriptPubKey":"hex","redeemScript":"hex","witnessScript":"hex","amount":amount,"amountcommitment":"str"},...] "sighashtype" )
+unblindrawtransaction "hex"
+unloadwallet ( "wallet_name" load_on_startup )
+upgradewallet ( version )
+walletcreatefundedpsbt ( [{"txid":"hex","vout":n,"sequence":n,"pegin_bitcoin_tx":"hex","pegin_txout_proof":"hex","pegin_claim_script":"hex","issuance_amount":n,"issuance_tokens":n,"asset_entropy":"hex","asset_blinding_nonce":"hex","blind_reissuance":bool,"weight":n},...] ) [{"address":amount,"blinder_index":n,"asset":"str",...},{"data":"hex"},...] ( locktime options bip32derivs {"pubkeys":["pubkey",...],"scripts":["script",...],"descriptors":["descriptor",...]} psbt_version )
+walletdisplayaddress "address"
+walletlock
+walletpassphrase "passphrase" timeout
+walletpassphrasechange "oldpassphrase" "newpassphrase"
+walletprocesspsbt "psbt" ( sign "sighashtype" bip32derivs finalize )
+
+== Zmq ==
+getzmqnotifications
