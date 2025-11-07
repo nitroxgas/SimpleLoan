@@ -2,15 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* Modern teal/cyan color scheme */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  --primary: #06b6d4; /* bright cyan */
+  --primary-dark: #0891b2;
+  --primary-light: #22d3ee;
+  --accent: #14b8a6; /* teal accent */
+  --background: #020617; /* darker background */
+  --card-bg: rgba(2, 6, 23, 0.65); /* darker, semi-transparent */
+  --card-border: rgba(6, 182, 212, 0.1);
+  --input-bg: rgba(2, 6, 23, 0.8); /* darker input background */
+  --text-main: #f8fafc;
+  --text-accent: #67e8f9;
+  --text-muted: #94a3b8;
+  --panel-bg: rgba(3, 7, 27, 0.7); /* new darker panel background */
+  font-family: 'Inter', 'Segoe UI', 'Avenir', 'Helvetica', 'Arial', sans-serif;
+  line-height: 1.6;
   font-weight: 400;
-
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #1a1a1a;
-
+  color: var(--text-main);
+  background: linear-gradient(135deg, var(--background) 0%, var(--card-bg) 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -18,13 +30,206 @@
 }
 
 body {
-  margin: 0;
+  margin: 0 !important;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #1a1a1a;
+  background: linear-gradient(135deg, #020617 0%, #0f172a 100%) !important;
+  color: var(--text-main) !important;
+  font-family: 'Inter', 'Segoe UI', 'Avenir', 'Helvetica', 'Arial', sans-serif !important;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: none !important;
+  color: var(--text-main) !important;
+}
+
+.card {
+  background: var(--card-bg) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 8px 32px rgba(6, 182, 212, 0.15) !important;
+  padding: 2rem !important;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out !important;
+  margin: 1.5rem !important;
+  max-width: 420px !important;
+  width: 100% !important;
+  border: 1px solid var(--card-border) !important;
+  color: var(--text-main) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 48px rgba(6, 182, 212, 0.2) !important;
+}
+
+.title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--primary) !important;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: var(--accent) !important;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.btn {
+  background: var(--primary) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem 1.5rem !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2) !important;
+  transition: all 0.2s ease !important;
+  width: 100% !important;
+  text-align: center !important;
+  margin-top: 1rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.025em !important;
+}
+
+.btn:hover {
+  background: var(--primary-dark) !important;
+  box-shadow: 0 6px 16px rgba(6, 182, 212, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+/* Form elements and labels */
+label {
+  display: block !important;
+  color: var(--text-accent) !important;
+  margin-bottom: 0.5rem !important;
+  font-weight: 500 !important;
+  font-size: 0.9rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+.amount-display {
+  font-family: 'Inter', monospace !important;
+  font-size: 1.25rem !important;
+  color: var(--text-accent) !important;
+  padding: 0.5rem !important;
+  border-radius: 0.5rem !important;
+  background: var(--panel-bg) !important;
+  border: 1px solid rgba(6, 182, 212, 0.2) !important;
+  backdrop-filter: blur(12px) !important;
+  text-align: right !important;
+}
+
+/* Empty state message */
+.empty-state {
+  color: var(--text-muted) !important;
+  text-align: center !important;
+  padding: 2rem !important;
+  font-style: italic !important;
+}
+
+/* How it works section */
+.how-it-works {
+  background: rgba(2, 6, 23, 0.65) !important;
+  border-radius: 0.75rem !important;
+  padding: 1.5rem !important;
+  margin-top: 2rem !important;
+  border: 1px solid rgba(6, 182, 212, 0.1) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.how-it-works h3 {
+  color: var(--primary) !important;
+  font-size: 1.1rem !important;
+  margin-bottom: 1rem !important;
+  font-weight: 600 !important;
+}
+
+.how-it-works ul {
+  color: var(--text-muted) !important;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.how-it-works li {
+  padding-left: 1.5rem !important;
+  position: relative !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.how-it-works li:before {
+  content: "•" !important;
+  color: var(--primary) !important;
+  position: absolute !important;
+  left: 0.5rem !important;
+}
+
+/* Supply Assets Section */
+.supply-assets {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 1rem !important;
+  padding: 2rem !important;
+  margin-bottom: 2rem !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 8px 32px rgba(6, 182, 212, 0.15) !important;
+}
+
+.supply-assets-header {
+  color: var(--text-main) !important;
+  margin-bottom: 1rem !important;
+}
+
+.positions-card {
+  background: var(--panel-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 0.75rem !important;
+  padding: 1.5rem !important;
+  margin-top: 1rem !important;
+  color: var(--text-muted) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.marketing-icon {
+  padding: 1rem !important;
+  background: rgba(6, 182, 212, 0.15) !important;
+  border-radius: 9999px !important;
+  margin-bottom: 1rem !important;
+  backdrop-filter: blur(12px) !important;
+  color: rgb(6, 182, 212) !important;
+  border: 1px solid rgba(6, 182, 212, 0.2) !important;
+}
+
+select, input[type="text"], input[type="number"] {
+  background: var(--input-bg) !important;
+  color: var(--text-main) !important;
+  border: 1px solid rgba(6, 182, 212, 0.2) !important;
+  border-radius: 0.5rem !important;
+  backdrop-filter: blur(12px) !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 1rem !important;
+  margin-bottom: 1rem !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out !important;
+}
+select:focus, input[type="text"]:focus, input[type="number"]:focus {
+  outline: none !important;
+  border-color: var(--primary-light) !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1) !important;
 }

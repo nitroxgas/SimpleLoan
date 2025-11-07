@@ -1,3 +1,6 @@
+# Billau
+
+> **AAVE-inspired lending protocol with formal verification on Liquid Network**
 # Fantasma Protocol
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,7 +12,7 @@
 
 > **AAVE-inspired lending protocol with formal verification on Liquid Network**
 
-Fantasma is a decentralized lending protocol that brings AAVE's battle-tested architecture to Bitcoin's Liquid sidechain using formally verified smart contracts. Built with SimplicityHL and adapted for the UTXO model, Fantasma enables users to supply assets, borrow against collateral, and participate in a trustless lending market with mathematical guarantees of correctness.
+Billau is a decentralized lending protocol that brings AAVE's battle-tested architecture to Bitcoin's Liquid sidechain using formally verified smart contracts. Built with SimplicityHL and adapted for the UTXO model, Billau enables users to supply assets, borrow against collateral, and participate in a trustless lending market with mathematical guarantees of correctness.
 
 ---
 
@@ -157,8 +160,8 @@ cd frontend && npm start
 
 ```bash
 # Clone repository
-git clone https://github.com/nitroxgas/SimpleLoan.git fantasma
-cd fantasma
+git clone https://github.com/nitroxgas/SimpleLoan.git billau
+cd billau
 
 # Setup Elements regtest node
 ./scripts/setup_testnet.sh
@@ -452,7 +455,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ```
 MIT License
 
-Copyright (c) 2025 Fantasma Protocol Contributors
+Copyright (c) 2025 Billau Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -477,10 +480,10 @@ SOFTWARE.
 
 ## 🔗 Links
 
-- **Website**: [fantasma.network](https://fantasma.network) (coming soon)
-- **Documentation**: [docs.fantasma.network](https://docs.fantasma.network) (coming soon)
-- **Twitter**: [@FantasmaProtocol](https://twitter.com/FantasmaProtocol) (coming soon)
-- **Discord**: [Join our community](https://discord.gg/fantasma) (coming soon)
+- **Website**: [billau.network](https://billau.network) (coming soon)
+- **Documentation**: [docs.billau.network](https://docs.billau.network) (coming soon)
+- **Twitter**: [@BillauProtocol](https://twitter.com/BillauProtocol) (coming soon)
+- **Discord**: [Join our community](https://discord.gg/billau) (coming soon)
 - **Liquid Network**: [liquid.net](https://liquid.net/)
 - **Elements Project**: [elementsproject.org](https://elementsproject.org/)
 - **Simplicity**: [github.com/BlockstreamResearch/simplicity](https://github.com/BlockstreamResearch/simplicity)
@@ -524,7 +527,7 @@ SOFTWARE.
 
 <div align="center">
 
-**Built with ❤️ by the Fantasma community**
+**Built with ❤️ by the Billau community**
 
 *Bringing formally verified DeFi to Bitcoin*
 

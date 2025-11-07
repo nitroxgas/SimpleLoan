@@ -1,6 +1,6 @@
-# Fantasma Protocol - Frontend
+# Billau - Frontend
 
-React + TypeScript frontend for the Fantasma UTXO lending protocol.
+React + TypeScript frontend for the Billau UTXO lending protocol.
 
 ## Tech Stack
 

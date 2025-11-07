@@ -63,11 +63,11 @@ export function SupplyForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 p-6 bg-white rounded-lg shadow"
+      className="space-y-4 p-6 bg-gray-800 rounded-lg shadow border border-gray-700"
     >
       <div>
-        <h2 className="text-2xl font-bold mb-4">Supply Assets</h2>
-        <p className="text-gray-600 mb-6">
+        <h2 className="text-2xl font-bold mb-4 text-white">Supply Assets</h2>
+        <p className="text-gray-400 mb-6">
           Deposit assets to earn interest. You'll receive aTokens representing
           your share.
         </p>
@@ -77,7 +77,7 @@ export function SupplyForm({
       <div>
         <label
           htmlFor="asset"
-          className="block text-sm font-medium text-gray-700 mb-2"
+          className="block text-sm font-medium text-gray-300 mb-2"
         >
           Asset
         </label>
@@ -86,7 +86,7 @@ export function SupplyForm({
           value={selectedAsset}
           onChange={(e) => setSelectedAsset(e.target.value)}
           disabled={disabled || isSubmitting}
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+          className="w-full px-4 py-2 bg-gray-900 text-white border border-gray-700 rounded-md focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:bg-gray-800"
           required
         >
           <option value="">Select an asset</option>
@@ -102,7 +102,7 @@ export function SupplyForm({
       <div>
         <label
           htmlFor="amount"
-          className="block text-sm font-medium text-gray-700 mb-2"
+          className="block text-sm font-medium text-gray-300 mb-2"
         >
           Amount
         </label>
@@ -116,10 +116,10 @@ export function SupplyForm({
             placeholder="0.00"
             step="0.00000001"
             min="0.00001"
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+            className="w-full px-4 py-2 bg-gray-900 text-white border border-gray-700 rounded-md focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:bg-gray-800"
             required
           />
-          <span className="absolute right-4 top-2 text-gray-500">
+          <span className="absolute right-4 top-2 text-gray-400">
             {selectedAsset
               ? availableAssets.find((a) => a.id === selectedAsset)?.name
               : "Asset"}
@@ -132,9 +132,9 @@ export function SupplyForm({
 
       {/* Error Display */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm font-semibold text-red-800 mb-1">Error:</p>
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="p-4 bg-red-900/50 border border-red-700 rounded-md backdrop-blur-sm">
+          <p className="text-sm font-semibold text-red-200 mb-1">Error:</p>
+          <p className="text-sm text-red-300">{error}</p>
         </div>
       )}
 
@@ -142,15 +142,15 @@ export function SupplyForm({
       <button
         type="submit"
         disabled={disabled || isSubmitting || !amount || !selectedAsset}
-        className="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+        className="w-full px-6 py-3 bg-cyan-600 text-white font-medium rounded-md hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
       >
         {isSubmitting ? "Supplying..." : "Supply Assets"}
       </button>
 
       {/* Info */}
-      <div className="mt-4 p-4 bg-blue-50 rounded-md">
-        <h3 className="text-sm font-medium text-blue-900 mb-2">How it works</h3>
-        <ul className="text-sm text-blue-700 space-y-1">
+      <div className="mt-4 p-4 bg-gray-900/50 rounded-md border border-gray-700 backdrop-blur-sm">
+        <h3 className="text-sm font-medium text-cyan-400 mb-2">How it works</h3>
+        <ul className="text-sm text-gray-400 space-y-1">
           <li>• You receive aTokens representing your share of the pool</li>
           <li>• Your share grows automatically as interest accrues</li>
           <li>• Withdraw anytime (subject to available liquidity)</li>

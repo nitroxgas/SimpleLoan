@@ -1,5 +1,5 @@
 /**
- * API Client for Fantasma Protocol
+ * API Client for Billau
  */
 
 import axios, { AxiosInstance } from "axios";
